@@ -11,10 +11,10 @@ library(arrow)
 # submission information
 team_name <- "fable_ARIMA"
 
-team_list <- list(list(individualName = list(givenName = "Freya", 
-                                             surName = "Olsson"),
-                       organizationName = "Virginia Tech",
-                       electronicMailAddress = "freyao@vt.edu"))
+# team_list <- list(list(individualName = list(givenName = "Freya", 
+#                                              surName = "Olsson"),
+#                        organizationName = "Virginia Tech",
+#                        electronicMailAddress = "freyao@vt.edu"))
 
 # Target data
 targets <- readr::read_csv("https://data.ecoforecast.org/neon4cast-targets/aquatics/aquatics-targets.csv.gz", guess_max = 1e6)
@@ -40,40 +40,40 @@ df_past <- neon4cast::noaa_stage3()
 # Only need the air temperature from the lake sites
 noaa_past <- df_past |> 
   dplyr::filter(site_id %in% sites,
-                time >= ymd('2017-01-01'),
+                datetime >= ymd('2017-01-01'),
                 variable == "air_temperature") |> 
   dplyr::collect()
 
 # aggregate the past to mean daily values
 noaa_past_mean <- noaa_past |> 
-  mutate(time = as_date(time)) |> 
-  group_by(time, site_id) |> 
-  summarize(air_temperature = mean(predicted, na.rm = TRUE), .groups = "drop") |> 
-  rename(datetime = time) |> 
+  mutate(datetime = as_date(datetime)) |> 
+  group_by(datetime, site_id) |> 
+  summarize(air_temperature = mean(prediction, na.rm = TRUE)) |> 
   # convert air temp to C
   mutate(air_temperature = air_temperature - 273.15)
 
 
 # Forecasts
 # New forecast only available at 5am UTC the next day
-forecast_date <- as.character(Sys.Date() - 1)
+forecast_date <- Sys.Date() 
+noaa_date <- forecast_date - days(1)
 
 df_future <- neon4cast::noaa_stage2()
 
 noaa_future <- df_future |> 
-  dplyr::filter(cycle == 0,
-                start_date == forecast_date,
+  dplyr::filter(reference_datetime == noaa_date,
+                datetime >= forecast_date,
                 site_id %in% sites,
                 variable == "air_temperature") |> 
   dplyr::collect()
 
 # Aggregate for each ensemble for future
 noaa_future <- noaa_future |> 
-  mutate(datetime = as_date(time)) |> 
-  group_by(datetime, site_id, ensemble) |> 
-  summarize(air_temperature = mean(predicted)) |> 
+  mutate(datetime = as_date(datetime)) |> 
+  group_by(datetime, site_id, parameter) |> 
+  summarize(air_temperature = mean(prediction)) |> 
   mutate(air_temperature = air_temperature - 273.15) |> 
-  select(datetime, site_id, air_temperature, ensemble)
+  select(datetime, site_id, air_temperature, parameter)
 
 
 # Merge in past NOAA data into the targets file, matching by date.
@@ -81,9 +81,9 @@ noaa_future <- noaa_future |>
 # temperature to match with the historical water temperature
 
 targets <- targets |> 
-  select(datetime, site_id, variable, observed) |> 
+  select(datetime, site_id, variable, observation) |> 
   filter(variable == 'temperature') |> 
-  pivot_wider(names_from = "variable", values_from = "observed") %>%
+  pivot_wider(names_from = "variable", values_from = "observation") %>%
   filter(!is.na(temperature))
 
 targets <- left_join(targets, noaa_past_mean, by = c("datetime","site_id"))
@@ -111,29 +111,32 @@ for (i in 1:nrow(forecast_starts)) {
 
 past_weather <- past_weather %>%
   group_by(site_id, air_temperature) %>%
-  mutate(ensemble = row_number())
+  mutate(parameter = row_number())
 
 
 # Combine the past weather with weather forecast
+message('creating weather ensembles')
 noaa_weather <- bind_rows(past_weather, noaa_future) %>%
-  arrange(site_id, ensemble)# %>%
+  arrange(site_id, parameter)# %>%
   # full_join(., start_forecast, by = 'site_id') %>%
   # filter(datetime >= start) %>%
   # select(-start) %>%
   # ungroup()
 
-# Split the NOAA forecast into each ensemble
-noaa_ensembles <- split(noaa_weather, f = noaa_weather$ensemble)
+# Split the NOAA forecast into each ensemble (parameter)
+noaa_ensembles <- split(noaa_weather, f = noaa_weather$parameter)
 # For each ensemble make this into a tsibble that can be used to forecast
   # then when this is supplied as the new_data argument it will run the forecast for each 
   # air-temperature forecast ensemble
 test_scenarios <- lapply(noaa_ensembles, as_tsibble, key = 'site_id', index = 'datetime')
 
+
+message('starting ARIMA model fitting and forecast generations')
 # Fits separate LM with ARIMA errors for each site
 ARIMA_model <- targets %>%
   as_tsibble(key = 'site_id', index = 'datetime') %>%
   # add NA values for explicit gaps
-  fill_gaps() %>%
+  tsibble::fill_gaps() %>%
   model(ARIMA(temperature ~ air_temperature)) 
 
 # Forecast using the fitted model
@@ -157,11 +160,11 @@ convert.to.efi_standard <- function(df){
     dplyr::select(any_of(c('datetime', 'reference_datetime', 'site_id', 'family', 
                            'parameter', 'variable', 'prediction', 'ensemble')))
 }
-
+message('converting to EFI standard')
 ARIMA_EFI <- convert.to.efi_standard(ARIMA_fable)
   
 
-forecast_file <- paste0('aquatics-', min(ARIMA_EFI$datetime), '-', team_name, '.csv.gz')
+forecast_file <- paste0('aquatics-', ARIMA_EFI$reference_datetime[1], '-', team_name, '.csv.gz')
 
 write_csv(ARIMA_EFI, forecast_file)
 # Submit forecast!
