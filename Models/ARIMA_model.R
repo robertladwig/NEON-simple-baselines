@@ -9,7 +9,7 @@ library(lubridate)
 library(arrow)
 
 # submission information
-team_name <- "fable_ARIMA"
+team_name <- "fARIMA"
 
 # team_list <- list(list(individualName = list(givenName = "Freya", 
 #                                              surName = "Olsson"),
@@ -156,9 +156,10 @@ convert.to.efi_standard <- function(df){
     dplyr::rename(prediction = .sim) %>%
     dplyr::select(datetime, site_id, prediction, variable, parameter) %>%
     dplyr::mutate(family = "ensemble",
+                  model_id = team_name,
                   reference_datetime = min(datetime) - lubridate::days(1)) %>%
     dplyr::select(any_of(c('datetime', 'reference_datetime', 'site_id', 'family', 
-                           'parameter', 'variable', 'prediction', 'ensemble')))
+                           'parameter', 'variable', 'prediction', 'ensemble', 'model_id')))
 }
 message('converting to EFI standard')
 ARIMA_EFI <- convert.to.efi_standard(ARIMA_fable)

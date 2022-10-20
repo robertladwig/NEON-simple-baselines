@@ -9,7 +9,7 @@ library(lubridate)
 library(arrow)
 
 # submission information
-team_name <- "fable_TSLM_lagged"
+team_name <- "fTSLM_lag"
 
 # team_list <- list(list(individualName = list(givenName = "Freya", 
 #                                              surName = "Olsson"),
@@ -174,9 +174,10 @@ convert.to.efi_standard <- function(df){
     dplyr::rename(prediction = .sim) %>%
     dplyr::select(datetime, site_id, prediction, variable, parameter) %>%
     dplyr::mutate(family = "ensemble",
+                  model_id = team_name, 
                   reference_datetime = min(datetime) - lubridate::days(1)) %>%
     dplyr::select(any_of(c('datetime', 'reference_datetime', 'site_id', 'family', 
-                           'parameter', 'variable', 'prediction')))
+                           'parameter', 'variable', 'prediction', 'model_id')))
 }
 
 # Convert to the EFI standard from a fable with distribution
