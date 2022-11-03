@@ -1,5 +1,5 @@
 ## AWESOME PHYSICS MODEL (APM)
-
+library(LakeModelR)
 
 aquatic_sites <- read_csv("https://raw.githubusercontent.com/eco4cast/neon4cast-targets/main/NEON_Field_Site_Metadata_20220412.csv") |>
   dplyr::filter(aquatics == 1)
