@@ -1,4 +1,8 @@
 ## AWESOME PHYSICS MODEL (APM)
+require(remotes)
+remotes::install_github("robertladwig/LakeModelR")
+remotes::install_github("aemon-j/gotmtools")
+
 library(LakeModelR)
 
 aquatic_sites <- read_csv("https://raw.githubusercontent.com/eco4cast/neon4cast-targets/main/NEON_Field_Site_Metadata_20220412.csv") |>
