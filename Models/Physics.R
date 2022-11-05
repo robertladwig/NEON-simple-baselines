@@ -1,9 +1,11 @@
 ## AWESOME PHYSICS MODEL (APM)
-require(remotes)
-remotes::install_github("robertladwig/LakeModelR")
-remotes::install_github("aemon-j/gotmtools")
+#require(remotes)
+#remotes::install_github("robertladwig/LakeModelR")
+#remotes::install_github("aemon-j/gotmtools")
 
-library(LakeModelR)
+source('src/integralenergy_functions.R')
+
+#library(LakeModelR)
 
 aquatic_sites <- read_csv("https://raw.githubusercontent.com/eco4cast/neon4cast-targets/main/NEON_Field_Site_Metadata_20220412.csv") |>
   dplyr::filter(aquatics == 1)
@@ -48,7 +50,7 @@ noaa_past_allvars <- df_past |>
                 variable %in% vars) |> 
   dplyr::collect()
 
-require(gotmtools)
+#require(gotmtools)
 
 
 future_weather = noaa_future_allvars %>% 
