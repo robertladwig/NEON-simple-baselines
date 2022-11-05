@@ -113,7 +113,7 @@ targets %>%
 df_xiao = matrix(NA, nrow =  nrow(future_weather_onelake), ncol = 10)
 
 
-for (j in 1: ncol(df)){
+for (j in 1: ncol(df_xiao)){
   temp = 23.3
   for (n in 1:nrow(future_weather_onelake)) {
     Q <- (
