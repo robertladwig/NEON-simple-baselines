@@ -9,6 +9,13 @@ source('src/integralenergy_functions.R')
 library(dplyr)
 library(readr)
 library(chron)
+library(fable)
+library(tsibble)
+library(tidyverse)
+library(neon4cast)
+library(lubridate)
+#library(rMR)
+library(arrow)
 
 aquatic_sites <- read_csv("https://raw.githubusercontent.com/eco4cast/neon4cast-targets/main/NEON_Field_Site_Metadata_20220412.csv") |>
   dplyr::filter(aquatics == 1)
