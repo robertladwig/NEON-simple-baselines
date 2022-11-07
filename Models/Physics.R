@@ -114,7 +114,8 @@ df_xiao = matrix(NA, nrow =  nrow(future_weather_onelake), ncol = 10)
 
 
 for (j in 1: ncol(df_xiao)){
-  temp = 23.3
+  # temp = 23.3
+  temp = targets$observation
   for (n in 1:nrow(future_weather_onelake)) {
     Q <- (
       longwave(cc = daily_meteo[n, "cc"], sigma = sigma, Tair = (daily_meteo[n, "air_temperature"] - 273.15) %>% pull(air_temperature), ea = daily_meteo[n, "ea"], emissivity = emissivity, Jlw = daily_meteo[n, "surface_downwelling_longwave_flux_in_air"]) +
