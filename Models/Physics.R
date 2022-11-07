@@ -126,7 +126,6 @@ for (j in 1: ncol(df_xiao)){
     
     temp = append(temp,as.numeric(temp[n] + (Q + H)/(4184 * calc_dens(temp[n])) * 3600 + rnorm(mean = 0, n = 1, sd = 0.005)))
     
-    print(n)
   }
   df_xiao[, j] = temp[-1]
 }
