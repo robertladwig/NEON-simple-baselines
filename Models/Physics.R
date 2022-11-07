@@ -110,7 +110,7 @@ targets %>%
   filter(variable == 'temperature', site_id == "BARC") %>% 
   slice_max(datetime)
 
-df_xiao = matrix(NA, nrow =  nrow(future_weather_onelake), ncol = 10)
+df_xiao = matrix(NA, nrow =  nrow(future_weather_onelake), ncol = 100)
 
 
 for (j in 1: ncol(df_xiao)){
