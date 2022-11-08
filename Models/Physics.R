@@ -128,7 +128,7 @@ for (j in 1: ncol(df_xiao)){
         latent(Tair = (daily_meteo[n, "air_temperature"] - 273.15) %>% pull(air_temperature), Twater = temp[n], Uw = daily_meteo[n, "wind"] %>% pull(wind), p2 = 1, pa = daily_meteo[n, "air_pressure"] %>% pull(air_pressure), ea=daily_meteo[n, "ea"] %>% pull(ea), RH = daily_meteo[n, "relative_humidity"] %>% pull(relative_humidity), A = 0.13 * 1000000, Cd = 0.0013) +
         sensible(Tair = (daily_meteo[n, "air_temperature"] - 273.15) %>% pull(air_temperature), Twater = temp[n], Uw = daily_meteo[n, "wind"] %>% pull(wind), p2 = 1, pa = daily_meteo[n, "air_pressure"] %>% pull(air_pressure), ea=daily_meteo[n, "ea"] %>% pull(ea), RH = daily_meteo[n, "relative_humidity"] %>% pull(relative_humidity), A = 0.13 * 1000000, Cd = 0.0013))
     
-    H =  (1- 0.9) * (daily_meteo[n, "surface_downwelling_shortwave_flux_in_air"])
+    H =  (1- 0.1) * (daily_meteo[n, "surface_downwelling_shortwave_flux_in_air"])
     
     temp = append(temp,as.numeric(temp[n] + (Q + H)/(4184 * calc_dens(temp[n])) * 3600 + rnorm(mean = 0, n = 1, sd = 0.005)))
     
