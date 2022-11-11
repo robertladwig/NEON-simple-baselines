@@ -93,7 +93,7 @@ cloud_cover = calc_cc(date = future_weather_onelake$datetime,
                       swr = zoo::na.approx(future_weather_onelake$surface_downwelling_shortwave_flux_in_air),
                       lat = mean(future_weather_onelake$latitude),
                       lon = mean(future_weather_onelake$longitude),
-                      elev = 10)
+                      elev = 27)
 
 future_weather_onelake$ea = future_weather_onelake$relative_humidity * 10^(9.28603523 - 2322.37885/(future_weather_onelake$air_temperature))
 
