@@ -239,7 +239,7 @@ get_hypsography <- function(hypsofile, dx, nx){
 
 longwave <- function(cc, sigma, Tair, ea, emissivity, Jlw){  # longwave radiation into
   Tair = Tair + 273.15
-  p <- (1.33 * ea/Tair)
+  p <- (ea/Tair)
   Ea <- 1.24 * (1 + 0.17 * cc**2) * p**(1/7)
   lw <- emissivity * Ea *sigma * Tair**4
   return(lw)
