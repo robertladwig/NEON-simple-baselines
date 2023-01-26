@@ -36,6 +36,7 @@ targets <- targets %>%
 
 
 # New forecast only available at 5am UTC the next day 
+# note to speed up the downloading: maybe store the downloaded future and past datasets and only append the new data for the upcoming dates.
 
 forecast_date <- Sys.Date() 
 noaa_date <- forecast_date - days(2)
@@ -49,20 +50,20 @@ noaa_future_allvars <- df_future |>
                 variable %in% vars) |> 
   dplyr::collect()
 
-# past stacked weather
-df_past <- neon4cast::noaa_stage3()
-
-#Other variable names can be found at https://projects.ecoforecast.org/neon4cast-docs/Shared-Forecast-Drivers.html#stage-2
-
-noaa_past_allvars <- df_past |> 
-  dplyr::filter(site_id %in% lake_sites$field_site_id,
-                datetime >= ymd('2017-01-01'),
-                variable %in% vars) |> 
-  dplyr::collect()
+# past stacked weather, currently not used
+# df_past <- neon4cast::noaa_stage3()
+# 
+# #Other variable names can be found at https://projects.ecoforecast.org/neon4cast-docs/Shared-Forecast-Drivers.html#stage-2
+# 
+# noaa_past_allvars <- df_past |> 
+#   dplyr::filter(site_id %in% lake_sites$field_site_id,
+#                 datetime >= ymd('2017-01-01'),
+#                 variable %in% vars) |> 
+#   dplyr::collect()
 
 #require(gotmtools)
 
-
+## future and past data only needed at the daily interval, here to aggretate from hourly to daily
 future_weather = noaa_future_allvars %>% 
   group_by(datetime, site_id, variable) %>% 
   summarise(prediction = mean(prediction, na.rm = T),
@@ -72,6 +73,8 @@ future_weather = noaa_future_allvars %>%
   pivot_wider(values_from = prediction, names_from = variable)
 
 names(future_weather)
+future_weather %>% ggplot(aes(x = datetime, y = air_temperature, color = site_id)) + geom_line() + facet_wrap(~site_id)
+
 
 future_weather_onelake = future_weather %>% 
   filter(site_id == "BARC")
@@ -87,63 +90,86 @@ future_weather_onelake = future_weather %>%
 
 future_weather_onelake$surface_downwelling_shortwave_flux_in_air[793] = 0
 
-cloud_cover = calc_cc(date = future_weather_onelake$datetime,
-                      airt = future_weather_onelake$air_temperature - 273.15,
-                      relh = future_weather_onelake$relative_humidity,
-                      swr = zoo::na.approx(future_weather_onelake$surface_downwelling_shortwave_flux_in_air),
-                      lat = mean(future_weather_onelake$latitude),
-                      lon = mean(future_weather_onelake$longitude),
-                      elev = 27)
+future_weather_alllakes = future_weather %>% 
+  left_join(lake_sites %>% select(field_site_id, field_mean_elevation_m), by = c("site_id" = "field_site_id")) %>% 
+  group_by(site_id) %>% 
+  mutate(
+    cc = calc_cc(
+      date = datetime,
+      airt = air_temperature - 273.15,
+      relh = relative_humidity,
+      swr = zoo::na.approx(surface_downwelling_shortwave_flux_in_air),
+      lat = mean(latitude),
+      lon = mean(longitude),
+      elev = mean(field_mean_elevation_m)
+    ),
+    ea = relative_humidity * 10^(9.28603523 - 2322.37885/(air_temperature)),
+    wind = sqrt(eastward_wind^2 + northward_wind^2)) %>% 
+  ungroup
 
-future_weather_onelake$ea = future_weather_onelake$relative_humidity * 10^(9.28603523 - 2322.37885/(future_weather_onelake$air_temperature))
-
-future_weather_onelake = future_weather_onelake %>% 
-  mutate(wind = sqrt(eastward_wind^2 + northward_wind^2))
-
-future_weather_onelake$cc = cloud_cover
-daily_meteo = future_weather_onelake
+# daily_meteo = future_weather_alllakes
 sigma = 5.67*10^(-8)
 emissivity = 0.97
 eps = 0.97
 
-targets %>%
-  filter(variable == 'temperature', site_id == "BARC") %>% 
-  slice_max(datetime)
+## obtain the latest measurements for target variables
+# TODO: note that lakes have different last date of observed temperature, and TOOK does have temp obs
 
-targets_init <- targets %>%
-  filter(variable == 'temperature', site_id == "BARC") %>% 
-  slice_max(datetime)
+targets_init = targets %>%
+  filter(variable == 'temperature') %>% 
+  group_by(site_id) %>% 
+  slice_max(datetime) %>% 
+  ungroup()
 
-df_xiao = matrix(NA, nrow =  nrow(future_weather_onelake), ncol = 100)
+# df_xr = matrix(NA, nrow =  nrow(future_weather_onelake), ncol = 100)
 
-
-for (j in 1: ncol(df_xiao)){
-  # temp = 23.3
-  temp = targets_init$observation
-  
-  for (n in 1:nrow(future_weather_onelake)) {
-    Q <- (
-      longwave(cc = daily_meteo[n, "cc"], sigma = sigma, Tair = (daily_meteo[n, "air_temperature"] - 273.15) %>% pull(air_temperature), ea = daily_meteo[n, "ea"], emissivity = emissivity, Jlw = daily_meteo[n, "surface_downwelling_longwave_flux_in_air"]) +
-        backscattering(emissivity = emissivity, sigma = sigma, Twater = temp[n], eps = eps) +
-        latent(Tair = (daily_meteo[n, "air_temperature"] - 273.15) %>% pull(air_temperature), Twater = temp[n], Uw = daily_meteo[n, "wind"] %>% pull(wind), p2 = 1, pa = daily_meteo[n, "air_pressure"] %>% pull(air_pressure), ea=daily_meteo[n, "ea"] %>% pull(ea), RH = daily_meteo[n, "relative_humidity"] %>% pull(relative_humidity), A = 0.13 * 1000000, Cd = 0.0013) +
-        sensible(Tair = (daily_meteo[n, "air_temperature"] - 273.15) %>% pull(air_temperature), Twater = temp[n], Uw = daily_meteo[n, "wind"] %>% pull(wind), p2 = 1, pa = daily_meteo[n, "air_pressure"] %>% pull(air_pressure), ea=daily_meteo[n, "ea"] %>% pull(ea), RH = daily_meteo[n, "relative_humidity"] %>% pull(relative_humidity), A = 0.13 * 1000000, Cd = 0.0013))
+## this step took 20min on my laptop
+temp_pred = future_weather_alllakes %>% 
+  right_join(targets_init %>% filter(!is.na(observation)) %>% rename(date_obs = datetime), by = "site_id") %>% 
+  group_by(site_id) %>% 
+  do({
     
-    H =  (1- 0.1) * (daily_meteo[n, "surface_downwelling_shortwave_flux_in_air"])
+    daily_meteo = .
     
-    temp = append(temp,as.numeric(temp[n] + (Q + H)/(4184 * calc_dens(temp[n])) * 3600 + rnorm(mean = 0, n = 1, sd = 0.005)))
+    ## rows are different dates and should be the same length as the available future meteo variables
+    ## columns are different perturbations, right now it is set to 100
+    df_xr = matrix(NA, nrow =  nrow(daily_meteo), ncol = 100)
     
-  }
-  df_xiao[, j] = temp[-1]
-}
+    for (j in 1: ncol(df_xr)){
+      # temp = 23.3
+      temp = daily_meteo$observation[1]
+      
+      for (n in 1:nrow(daily_meteo)) {
+        Q <- (
+          longwave(cc = daily_meteo[n, "cc"], sigma = sigma, Tair = (daily_meteo[n, "air_temperature"] - 273.15) %>% pull(air_temperature), ea = daily_meteo[n, "ea"], emissivity = emissivity, Jlw = daily_meteo[n, "surface_downwelling_longwave_flux_in_air"]) +
+            backscattering(emissivity = emissivity, sigma = sigma, Twater = temp[n], eps = eps) +
+            latent(Tair = (daily_meteo[n, "air_temperature"] - 273.15) %>% pull(air_temperature), Twater = temp[n], Uw = daily_meteo[n, "wind"] %>% pull(wind), p2 = 1, pa = daily_meteo[n, "air_pressure"] %>% pull(air_pressure), ea=daily_meteo[n, "ea"] %>% pull(ea), RH = daily_meteo[n, "relative_humidity"] %>% pull(relative_humidity), A = 0.13 * 1000000, Cd = 0.0013) +
+            sensible(Tair = (daily_meteo[n, "air_temperature"] - 273.15) %>% pull(air_temperature), Twater = temp[n], Uw = daily_meteo[n, "wind"] %>% pull(wind), p2 = 1, pa = daily_meteo[n, "air_pressure"] %>% pull(air_pressure), ea=daily_meteo[n, "ea"] %>% pull(ea), RH = daily_meteo[n, "relative_humidity"] %>% pull(relative_humidity), A = 0.13 * 1000000, Cd = 0.0013))
+        
+        H =  (1- 0.1) * (daily_meteo[n, "surface_downwelling_shortwave_flux_in_air"])
+        
+        temp = append(temp,as.numeric(temp[n] + (Q + H)/(4184 * calc_dens(temp[n])) * 3600 + rnorm(mean = 0, n = 1, sd = 0.005)))
+        
+      }
+      df_xr[, j] = temp[-1]
+    }
+    
+    df_xr[, j] = temp[-1]
+    
+    tibble(mu = apply(df_xr, 1, mean), sigma = apply(df_xr, 1, sd)) %>% bind_cols(daily_meteo %>% select(datetime, date_obs, observation))
+  }) %>% ungroup()
 
-apply(df_xiao, 1, sd) %>% plot()
-apply(df_xiao, 1, mean) %>% plot()
+daily_meteo %>% filter(site_id == "BARC") %>% pull(mu) %>% plot()
 
-pred = daily_meteo %>% select(datetime, site_id) %>% 
+temp_pred %>% ggplot(aes(x = datetime, y = mu, color = site_id)) + facet_wrap(~site_id) + geom_point() +
+  geom_hline(aes(yintercept = observation)) +
+  geom_vline(aes(xintercept = date_obs))
+
+## format for submission
+
+pred = temp_pred %>% select(datetime, site_id, sigma, mu) %>% 
   mutate(family = "normal",
          variable = "temperature",
-         sigma = apply(df_xiao, 1, sd),
-         mu = apply(df_xiao, 1, mean),
          model_id = "GLEON_physics"
   ) %>% 
   pivot_longer(names_to = "parameter",
