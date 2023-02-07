@@ -159,7 +159,7 @@ temp_pred = future_weather_alllakes %>%
     tibble(mu = apply(df_xr, 1, mean), sigma = apply(df_xr, 1, sd)) %>% bind_cols(daily_meteo %>% select(datetime, date_obs, observation))
   }) %>% ungroup()
 
-daily_meteo %>% filter(site_id == "BARC") %>% pull(mu) %>% plot()
+temp_pred %>% filter(site_id == "BARC") %>% pull(mu) %>% plot()
 
 temp_pred %>% ggplot(aes(x = datetime, y = mu, color = site_id)) + facet_wrap(~site_id) + geom_point() +
   geom_hline(aes(yintercept = observation)) +
