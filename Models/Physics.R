@@ -148,7 +148,11 @@ temp_pred = future_weather_alllakes %>%
         
         H =  (1- 0.1) * (daily_meteo[n, "surface_downwelling_shortwave_flux_in_air"])
         
-        temp = append(temp,as.numeric(temp[n] + (Q + H)/(4184 * calc_dens(temp[n])) * 3600 + rnorm(mean = 0, n = 1, sd = 0.005)))
+        pred_temp = as.numeric(temp[n] + (Q + H)/(4184 * calc_dens(temp[n])) * 3600 + rnorm(mean = 0, n = 1, sd = 0.05))
+        if (pred_temp <= 0){
+          pred_temp = 0
+        }
+        temp = append(temp, pred_temp)
         
       }
       df_xr[, j] = temp[-1]
