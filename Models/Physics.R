@@ -73,7 +73,7 @@ future_weather = noaa_future_allvars %>%
   pivot_wider(values_from = prediction, names_from = variable)
 
 names(future_weather)
-future_weather %>% ggplot(aes(x = datetime, y = air_temperature, color = site_id)) + geom_line() + facet_wrap(~site_id)
+# future_weather %>% ggplot(aes(x = datetime, y = air_temperature, color = site_id)) + geom_line() + facet_wrap(~site_id)
 
 
 future_weather_onelake = future_weather %>% 
@@ -163,9 +163,9 @@ temp_pred = future_weather_alllakes %>%
     tibble(mu = apply(df_xr, 1, mean), sigma = apply(df_xr, 1, sd)) %>% bind_cols(daily_meteo %>% select(datetime, date_obs, observation))
   }) %>% ungroup()
 
-temp_pred %>% filter(site_id == "BARC") %>% pull(mu) %>% plot()
+# temp_pred %>% filter(site_id == "BARC") %>% pull(mu) %>% plot()
 
-temp_pred %>% ggplot(aes(x = datetime, y = mu, color = site_id)) + facet_wrap(~site_id) + geom_point() +
+# temp_pred %>% ggplot(aes(x = datetime, y = mu, color = site_id)) + facet_wrap(~site_id) + geom_point() +
   geom_hline(aes(yintercept = observation)) +
   geom_vline(aes(xintercept = date_obs))
 
